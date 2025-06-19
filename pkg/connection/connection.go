@@ -1,4 +1,4 @@
-package main
+package connection
 
 import (
 	"context"
@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/umenorin/rinha-backend-2023/pkg/route"
-
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 )
-
-func main() {
+// TODO 
+//fazer essa parte ser chamada pelo main.go sem ter o problema de espera
+//possivel soluçao coccurency e chanels
+func StartConnection() (context.Context, *pgx.Conn) {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -27,9 +27,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer conn.Close(ctx)
-
-	myhandler :=	route.MyHandler{ConnectionDatabase: conn} 
-	http.HandleFunc("/person",myhandler.GetPersons)
 	err = http.ListenAndServe(":8000", nil)
 
 	if errors.Is(err, http.ErrServerClosed) {
@@ -39,6 +36,5 @@ func main() {
 		fmt.Printf("error startin server: %s\n", err)
 		os.Exit(1)
 	}
-
-
+	return ctx, conn
 }
