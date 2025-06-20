@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/umenorin/rinha-backend-2023/pkg/route"
+	"github.com/umenorin/rinha-backend-2023/pkg/router"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
@@ -28,9 +28,8 @@ func main() {
 	}
 	defer conn.Close(ctx)
 
-	myhandler :=	route.MyHandler{ConnectionDatabase: conn} 
-	http.HandleFunc("/person",myhandler.GetPersons)
-	err = http.ListenAndServe(":8000", nil)
+	route := router.RouterManager{ConnectionDatabase: conn}
+	route.ExecRouter(":8000")
 
 	if errors.Is(err, http.ErrServerClosed) {
 		fmt.Printf("Server closed\n")
@@ -39,6 +38,5 @@ func main() {
 		fmt.Printf("error startin server: %s\n", err)
 		os.Exit(1)
 	}
-
 
 }
