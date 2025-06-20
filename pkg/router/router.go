@@ -52,7 +52,6 @@ func (m RouterManager) CountPersons(w http.ResponseWriter, req *http.Request) {
 func (m RouterManager) GetPersonById(w http.ResponseWriter, req *http.Request) {
 	path := req.URL
 	id, _ := strings.CutPrefix(path.String(), "/pessoas/")
-	// query := fmt.Sprintf("SELECT * FROM person where person.id=%q", id)
 	rows, err := m.ConnectionDatabase.Query(context.Background(), "SELECT id,name,nickname,birthdate FROM person where person.id=$1", id)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
