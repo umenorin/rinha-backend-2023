@@ -4,8 +4,8 @@ import "time"
 
 type Person struct {
 	Id        string    `json: "id"`
-	Name      string    `json:"name"`
-	BirthDate time.Time `json:"birthdate"`
-	Nickname  string    `json:"nickname"`
-	Language     []string   `json:"Language"`
+	Name      string    `json:"nome"`
+	BirthDate time.Time `json:"nascimento"`
+	Nickname  string    `json:"apelido"`
+	Language  []string  `json:"stack"`
 }

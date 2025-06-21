@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -46,11 +47,13 @@ func (m RouterManager) CountPersons(w http.ResponseWriter, req *http.Request) {
 	}
 
 }
+
 func (m RouterManager) GetPersonById(w http.ResponseWriter, req *http.Request) {
-	path := req.URL
-	id, _ := strings.CutPrefix(path.String(), "/pessoas/")
+	id, _ := strings.CutPrefix(req.URL.String(), "/pessoas/")
 	rows, err := m.ConnectionDatabase.Query(context.Background(), "SELECT id,name,nickname,birthdate FROM person where person.id=$1", id)
-	util.CheckErrorQuery(err)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
+	}
 	defer rows.Close()
 	var person domain.Person
 	for rows.Next() {
@@ -61,9 +64,15 @@ func (m RouterManager) GetPersonById(w http.ResponseWriter, req *http.Request) {
 			fmt.Printf("Scan error: %v", err)
 			return
 		}
+
 		person = domain.Person{Id: id, Name: name, Nickname: nickname, BirthDate: birthdate}
 	}
 
+	if !rows.CommandTag().Select() {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "ERROR 404 - USER NOTE FOUND")
+		return
+	}
 	rows, err = m.ConnectionDatabase.Query(context.Background(), "SELECT l.name FROM language as l INNER JOIN stack as s on l.id = s.language_id INNER JOIN person as p on s.person_id=p.id where p.id=$1;", id)
 	util.CheckErrorQuery(err)
 	for rows.Next() {
