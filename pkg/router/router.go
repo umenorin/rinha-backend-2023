@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -19,9 +18,9 @@ type RouterManager struct {
 	ConnectionDatabase *pgx.Conn
 }
 
-func (m *RouterManager) ExecRouter(port string) error {
-	http.HandleFunc("GET /contagem-pessoas", m.CountPersons)
-	http.HandleFunc("GET /pessoas/{id}", m.GetPersonById)
+func (r *RouterManager) ExecRouter(port string) error {
+	http.HandleFunc("GET /contagem-pessoas", r.CountPersons)
+	http.HandleFunc("GET /pessoas/{id}", r.GetPersonById)
 	err := http.ListenAndServe(port, nil)
 	if err != nil {
 		return err
@@ -29,8 +28,8 @@ func (m *RouterManager) ExecRouter(port string) error {
 	return nil
 }
 
-func (m RouterManager) CountPersons(w http.ResponseWriter, req *http.Request) {
-	rows, err := m.ConnectionDatabase.Query(context.Background(), "SELECT COUNT(id)FROM person")
+func (r RouterManager) CountPersons(w http.ResponseWriter, req *http.Request) {
+	rows, err := r.ConnectionDatabase.Query(context.Background(), "SELECT COUNT(id)FROM person")
 	util.CheckErrorQuery(err)
 	defer rows.Close()
 	for rows.Next() {
@@ -48,24 +47,29 @@ func (m RouterManager) CountPersons(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func (m RouterManager) GetPersonById(w http.ResponseWriter, req *http.Request) {
+func (r RouterManager) GetPersonById(w http.ResponseWriter, req *http.Request) {
 	id, _ := strings.CutPrefix(req.URL.String(), "/pessoas/")
-	rows, err := m.ConnectionDatabase.Query(context.Background(), "SELECT id,name,nickname,birthdate FROM person where person.id=$1", id)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "QueryRow failed: %v\n", err)
-	}
+	rows, _ := r.ConnectionDatabase.Query(context.Background(), `
+	SELECT p.id,p.name,p.nickname,p.birthdate, l.name FROM person as p
+	LEFT JOIN stack as s ON p.id = s.person_id
+  LEFT JOIN language as l ON s.language_id = l.id
+  WHERE p.id =$1`, id)
+
 	defer rows.Close()
+
 	var person domain.Person
 	for rows.Next() {
-		var id, name, nickname string
+		var id, name, nickname, language string
 		var birthdate time.Time
-		err = rows.Scan(&id, &name, &nickname, &birthdate)
-		if err != nil {
-			fmt.Printf("Scan error: %v", err)
-			return
+		rows.Scan(&id, &name, &nickname, &birthdate, &language)
+
+		if language != "" {
+			person.Language = append(person.Language, language)
 		}
 
-		person = domain.Person{Id: id, Name: name, Nickname: nickname, BirthDate: birthdate}
+		person = domain.Person{Id: id, Name: name, Nickname: nickname, BirthDate: birthdate.Format("02-01-2006"), Language: person.Language}
+
+		fmt.Printf("birthDate: %v\n", birthdate)
 	}
 
 	if !rows.CommandTag().Select() {
@@ -73,25 +77,15 @@ func (m RouterManager) GetPersonById(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "ERROR 404 - USER NOTE FOUND")
 		return
 	}
-	rows, err = m.ConnectionDatabase.Query(context.Background(), "SELECT l.name FROM language as l INNER JOIN stack as s on l.id = s.language_id INNER JOIN person as p on s.person_id=p.id where p.id=$1;", id)
-	util.CheckErrorQuery(err)
-	for rows.Next() {
-		var name string
-		err = rows.Scan(&name)
-		if err != nil {
-			fmt.Printf("Scan error: %v", err)
-			return
-		}
-		person.Language = append(person.Language, name)
-	}
 
-	data, err := json.MarshalIndent(person, "", " ")
+	data, err := json.Marshal(person)
 	if err != nil {
-
 		log.Fatalf("JSON marshaling failed: %s", err)
-
 	}
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "%s\n", data)
+}
+
+func (r RouterManager) GetPersonBySearch(w http.ResponseWriter, req *http.Request) {
 
 }
