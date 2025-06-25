@@ -2,8 +2,8 @@ CREATE DATABASE rinha;
 \c rinha
 
 CREATE TABLE person(
-  id uuid,
-  nickname VARCHAR(255),
+  id uuid DEFAULT gen_random_uuid(),
+  nickname varchar(255),
   birthdate date,
   name VARCHAR(255),
 
@@ -11,7 +11,7 @@ CREATE TABLE person(
 );
 
 CREATE TABLE language (
-  id uuid ,
+  id uuid DEFAULT gen_random_uuid(),
   name VARCHAR(255),
 
   PRIMARY KEY(id)
