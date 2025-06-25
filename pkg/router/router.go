@@ -56,6 +56,10 @@ func (r RouterManager) GetPersonById(w http.ResponseWriter, req *http.Request) {
 	var person domain.Person
 
 	person = FindById(r.ConnectionDatabase, id)
+	if person.Nickname == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
 	data, err := json.Marshal(person)
 	if err != nil {
@@ -107,10 +111,108 @@ func (r RouterManager) GetPersonBySearch(w http.ResponseWriter, req *http.Reques
 
 }
 
-func (r RouterManager) PostPeople(w http.ResponseWriter,req *http.Request) {
+func (r RouterManager) PostPeople(w http.ResponseWriter, req *http.Request) {
 
+	var p domain.Person
+
+	err := json.NewDecoder(req.Body).Decode(&p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if len(strings.ReplaceAll(p.Name, " ", "")) == 0 ||
+		len(strings.ReplaceAll(p.Nickname, " ", "")) == 0 ||
+		CheckNicknameAlreadyExist(r.ConnectionDatabase, p.Nickname) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
+	AddNewStackLanguageInDb(r.ConnectionDatabase, p)
 }
 
+func AddNewStackLanguageInDb(conn *pgx.Conn, people domain.Person) {
+	conn.Exec(context.Background(), `
+			INSERT INTO person (name,birthdate,nickname) VALUES ($1,$2,$3)
+		`, people.Name, people.BirthDate, people.Nickname)
+
+	if len(people.Language) > 0 {
+		for _, lang := range people.Language {
+			conn.Exec(context.Background(), `
+			INSERT INTO language (name) VALUES ($1)
+		`, lang)
+
+		}
+	}
+
+	userId := getIdByNickName(conn, people.Nickname)
+	fmt.Printf("userId: %v\n", userId)
+	stacksId := getLanguagesIdByName(conn, people.Language)
+	fmt.Printf("stacksId: %v\n", stacksId)
+	for _, langId := range stacksId {
+		conn.Exec(context.Background(), `
+			INSERT INTO stack (person_id,language_id) VALUES ($1,$2)
+		`, userId, langId)
+	}
+}
+
+func CheckNicknameAlreadyExist(conn *pgx.Conn, nickname string) bool {
+	rows, err := conn.Query(context.Background(), `
+	SELECT p.id FROM person as p
+  WHERE p.nickname =$1`, nickname)
+	util.CheckErrorQuery(err)
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		rows.Scan(&id)
+		if len(id) != 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
+func getIdByNickName(conn *pgx.Conn, nickname string) string {
+	rows, err := conn.Query(context.Background(), `
+	SELECT p.id FROM person as p
+  WHERE p.nickname =$1`, nickname)
+	util.CheckErrorQuery(err)
+	defer rows.Close()
+	fmt.Printf("rows: %v\n", rows)
+	for rows.Next() {
+		var id string
+		fmt.Printf("id: %v\n", id)
+		rows.Scan(&id)
+		if len(id) > 0 {
+			return id
+		}
+	}
+
+	return ""
+}
+
+func getLanguagesIdByName(conn *pgx.Conn, languages []string) []string {
+	languagesId := []string{}
+	for _, lang := range languages {
+		rows, err := conn.Query(context.Background(), `
+	SELECT l.id FROM language as l
+  WHERE l.name =$1
+	LIMIT 1
+	`, lang)
+		util.CheckErrorQuery(err)
+		defer rows.Close()
+
+		for rows.Next() {
+			var id string
+			rows.Scan(&id)
+			if len(id) > 0 {
+				languagesId = append(languagesId, id)
+			}
+		}
+	}
+
+	return languagesId
+}
 func FindById(conn *pgx.Conn, id string) domain.Person {
 	rows, err := conn.Query(context.Background(), `
 	SELECT p.id,p.name,p.nickname,p.birthdate, l.name FROM person as p
