@@ -1,6 +1,5 @@
 FROM golang:1.24
 
-ENV POSTGRES_URL=postgres://postgres:mysecretpassword@localhost:5432/rinha?sslmode=disable
 WORKDIR /usr/src/app
 
 # pre-copy/cache go.mod for pre-downloading dependencies and only redownloading them in subsequent builds if they change

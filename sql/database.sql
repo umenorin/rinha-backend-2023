@@ -1,7 +1,7 @@
 CREATE DATABASE rinha;
 \c rinha
 
-CREATE TABLE person(
+CREATE TABLE IF NOT EXISTS  person(
   id uuid DEFAULT gen_random_uuid(),
   nickname varchar(255),
   birthdate date,
@@ -10,7 +10,7 @@ CREATE TABLE person(
   PRIMARY KEY(id)
 );
 
-CREATE TABLE language (
+CREATE TABLE IF NOT EXISTS  language (
   id uuid DEFAULT gen_random_uuid(),
   name VARCHAR(255),
 
@@ -18,7 +18,7 @@ CREATE TABLE language (
 );
 
 
-CREATE TABLE stack (
+CREATE TABLE IF NOT EXISTS  stack (
   person_id uuid references person(id),
   language_id uuid references language(id),
 
