@@ -1,5 +1,14 @@
-CREATE DATABASE rinha;
-\c rinha
+DO
+$do$
+BEGIN
+   IF EXISTS (SELECT FROM pg_database WHERE datname = 'rinha') THEN
+      RAISE NOTICE 'Database already exists';
+   ELSE
+      PERFORM dblink_exec('dbname=' || current_database()
+                        , 'CREATE DATABASE rinha');
+   END IF;
+END
+$do$;
 
 CREATE TABLE IF NOT EXISTS  person(
   id uuid DEFAULT gen_random_uuid(),
